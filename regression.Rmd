@@ -1,0 +1,127 @@
+---
+title: "R Notebook"
+author: "Francisco Trejo"
+author: "Diego Ochoa"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: inline
+---
+
+###What is Linear regression
+Linear regression is simple why to graph out a relationship between our predictor and target as simple linear equation.This method is very simple and can be used in combination with other methods but assumes the relationship between our X and Y is a linear expression. 
+
+### Link to CSV file
+https://www.kaggle.com/datasets/cashncarry/fifa-22-complete-player-dataset
+
+```{r}
+fifaData = read.csv("C:/Users/Diego/Downloads/players_fifa22.csv")
+fifaData = fifaData[, c("Age", "Height", "Weight", "Overall", "Growth", "Potential", "WageEUR", "ValueEUR")]
+fifaData = fifaData[fifaData$WageEUR != 0, ]
+```
+
+
+###Dividing the data set into an 80/20 train/test set
+```{r}
+set.seed(1301)
+i <- sample(1:nrow(fifaData), nrow(fifaData)*0.8, replace=FALSE)
+train <- fifaData[i,]
+test <- fifaData[-i,]
+
+lmName <- lm(formula = WageEUR ~ ValueEUR, data = train)
+summary(lmName)
+```
+
+
+###Data Analysis
+Notice that the correlation between a player's value and wage is high, meaning players are getting paid what they are worth, and so is a player's height and weight, meaning most players have a similar body type. However a player's age has low correlation to their value and wage. 
+```{r}
+sprintf("corralation between a player's value vs thier wage:    %#.4f", cor(train$ValueEUR, train$WageEUR))
+sprintf("corralation between a player's value vs thier age:     %#.4f", cor(train$ValueEUR, train$Age))
+sprintf("corralation between a player's wage vs thier age:      %#.4f", cor(train$ValueEUR, train$Age))
+sprintf("corralation between a player's Height vs thier Weight: %#.4f", cor(train$Height, train$Weight))
+sprintf("The avgerage player's height is %#.2fcm and the standard diviation is %#.2f", mean(train$Height), sd(train$Height))
+sprintf("The avgerage player's height is  %#.2fkg and the standard diviation is %#.2f", mean(train$Weight), sd(train$Weight))
+```
+
+###Graphs
+In these graphs notice that there is a bell curve relation with height, weight, and age vs value.
+```{r}
+plot(fifaData$ValueEUR,fifaData$WageEUR, main = "Wage vs Value", xlab="Value", ylab="Wage")
+plot(fifaData$Height,fifaData$Weight, main = "Height vs Weight", xlab="Height", ylab="Weight")
+plot(fifaData$Height,fifaData$ValueEUR, main = "Height vs ValueEUR", xlab="Height", ylab="ValueEUR")
+plot(fifaData$Weight,fifaData$ValueEUR, main = "Weight vs ValueEUR", xlab="Weight", ylab="ValueEUR")
+plot(fifaData$Age,fifaData$ValueEUR, main = "Age vs ValueEUR", xlab="Age", ylab="ValueEUR")
+```
+
+
+
+###What our summary tells us:
+Our Residuals have a wide range however, our median is close to the 1st and 3rd quarter which tells us there are a lot of outliers. Our P value is also low telling us that our predictor (player value) does influence our target(player wage). The player's value has a small stander error and high t-value which also suggests a relationship but our intercept is notably less accurate. Lastly our R-squared isn't too high which means the player's value can only give us a rough idea of the player's wage.
+
+
+###What our regression plots shows us:
+Residual vs Fitted: this plot shows us the pattern of our residuals, ours is mostly horizontal which means our target and predictor have a mostly linear relationship.
+Normal Q-Q: The plot bends at the ends of graph, which means that residuals are not properly distributed along smaller and larger values.
+Scale-Location: we can see our line isn't horizontal at all which means that our player's wage is not spread evenly along the range of the player's value
+Residuals vs Leverage: we have a few outliers outside the Cook's distance and some others that are near it
+
+```{r}
+lmValue <- lm(formula = WageEUR ~ ValueEUR, data = train)
+summary(lmValue)
+plot(lmValue)
+```
+###Multiple linear regression model 
+Wage prediction using only physical characteristics
+```{r}
+lmPhy <- lm(formula = WageEUR ~ Weight + Height + Age, data = train)
+summary(lmPhy)
+plot(lmPhy)
+```
+###3rd Regression model
+Wage prediction using player's value and physical characteristics in a weird combination
+```{r}
+lmAll <- lm(formula = WageEUR ~ ValueEUR + poly(Age) + Weight + Height + (Weight / Height) + Growth + Overall, data = train)
+summary(lmAll)
+plot(lmAll)
+```
+
+###Model Comparison
+Based on the three linear regression models we see that a player's value is the best indicator of their wage and that their physical characteristics are not however, in the 3rd model that used all the variables it's R-squared value was 0.03 higher than the 1st model making it slightly more accurate. So even though the physical characteristics aren't a good predictor, they can still improve an already good one. Also I don't know why but age is the only characteristic that is polynomial, none of the others are for some reason.
+```{r}
+
+#Original model
+print("Original model")
+pred <- predict(lmValue, test)
+correlation <- cor(pred, test)
+print(paste("correlation: ", correlation))
+mse <- mean((pred - test$WageEUR)^2)
+print(paste("mse: ", mse))
+rmse <- sqrt(mse)
+print(paste("rmse: ", rmse))
+
+#Physical characteristics model
+print("Physical characteristics model")
+pred <- predict(lmPhy, test)
+correlation <- cor(pred, test)
+print(paste("correlation: ", correlation))
+mse <- mean((pred - test$WageEUR)^2)
+print(paste("mse: ", mse))
+rmse <- sqrt(mse)
+print(paste("rmse: ", rmse))
+
+#Best model
+print("Best model")
+pred <- predict(lmAll, test)
+correlation <- cor(pred, test)
+print(paste("correlation: ", correlation))
+mse <- mean((pred - test$WageEUR)^2)
+print(paste("mse: ", mse))
+rmse <- sqrt(mse)
+print(paste("rmse: ", rmse))
+```
+
+###Evaluations
+As you can see the mean square errors and their square roots reaffirm what we said previously. Using only physical characteristics is worse than using the player's value but using both is the most accurate. 

@@ -1,0 +1,130 @@
+---
+title: "R Notebook"
+author: "Francisco Trejo"
+author: "Diego "
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: inline
+---
+### Classification
+
+Linear Models for classification are able to make predictions like regression but Classification classifies the data either by positive or negative relative to the linear line passing through the data. Unlike regression that is quantitative, Classification has to be qualitative. Some strengths to these linear models are that it gives out straightforward probabilistic interpretations of the data and it's not computationally expensive. A weakness to these linear models is that it can't handle complex relationships so it tends to underfit. 
+
+### Link to CSV file
+https://www.kaggle.com/datasets/rsrishav/patient-survival-after-one-year-of-treatment
+
+###Read File
+```{r}
+
+df <- read.csv("C:/Users/Diego/Downloads/Training_set_advance.csv", header=TRUE)
+
+
+```
+
+###Clean Data and convert factors
+```{r}
+df <- df[,c(2,5,6,8,17,18)]
+df <- df[complete.cases(df[, 1:6]),]
+df$Diagnosed_Condition <- factor(df$Diagnosed_Condition)
+df$Survived_1_year <- factor(df$Survived_1_year)
+#df$Patient_Smoker <- factor(df$Patient_Smoker)
+df$Patient_Rural_Urban <- factor(df$Patient_Rural_Urban)
+sapply(df, function(x) sum(is.na(x)==TRUE))
+```
+
+###Split to Train/Test and build Logistic Regression
+Summary of Logistic Regression is different for Linear Regression. The coefficient tells us the different between the target variable which is surviving after 1 year of treatment  and the predictor but in log odds. The negative tells us for example that with the increase of age the logs odds of surviving 1 year after treatment decreases. The Std. Error also seems to be a bit high on our different diagnosed conditions which questions the accuracy of these coefficients. The residual deviance is lower than the Null deviance which comparing the lack of the fit of the overall model and intercept which is has to be lower. The AIC is also pretty high but useful when comparing other models with lower AIC. Which is probably high because of the amount of predictors we have. The P value shows us what we knew beforehand about the diagnosed condition which may not be a good predictor because they are really close to 1. However, the last 4 predictors seem to be strong with low Std. Error and P value.  
+```{r}
+
+set.seed(1234)
+i <- sample(1:nrow(df), 0.8*nrow(df), replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+glm1 <- glm(Survived_1_year~., data=train, family="binomial")
+summary(glm1)
+```
+
+###5 R function data exploration and Graphs with training data
+```{r}
+sprintf("The average patient age addimited is %#.2f and the standard diviation is %#.2f", mean(train$Patient_Age), sd(train$Patient_Age))
+
+sprintf("The average patient's body mass index is  %#.2f and the standard diviation is %#.2f", mean(train$Patient_Body_Mass_Index), sd(train$Patient_Body_Mass_Index))
+
+
+sprintf("Columns of data")
+names(train)
+
+sprintf(" Amount of people who didn't survive vs the amount that did")
+summary(train$Survived_1_year)
+
+
+hist(train$Number_of_prev_cond, main = "Frequency of Number of Pre Conditions", xlab = "Number of Pre Conditions")
+
+
+#Graphs
+plot(train$Diagnosed_Condition, train$Patient_Body_Mass_Index, main = "Diagnosed Condition vs Body Mass Index", xlab="Condition", ylab="Body Mass Index")
+
+plot(train$Survived_1_year, train$Patient_Age , main = "Survived 1 year vs Age", xlab="Survived No or Yes", ylab="Age")
+
+
+
+
+
+```
+
+###Bayes Model
+The Bayes models tells us first the probability of surviving the 1 year treatment which is 62%. Then goes and tells us the conditional probability of each predictor. For the qualitative predictors all the probabilities from the row equal 1 when added. So there is 2.4% probability you would survive 1 year after the treatment if you were diagnosed with Condition 49 compared to the other conditions. The quantitative predictors don't do that but it gives you the average and standard deviation. So the average age of the people who survived 1 year after treatment was 32. 
+```{r}
+library(e1071)
+nb1 <- naiveBayes(train$Survived_1_year~., data=train )
+nb1
+```
+
+### Prediting and Evaluating Test Data
+
+We had a slightly higher accuracy for Bayes than we did for Logistical. The reason for that is because Bayes is more generative and the amount of predictors that were factors may have over whelmed the Logistical Regression. The high value of P in these almost 50 dummy predictors may have benefited the Bayes Model.   
+
+#Logistical
+```{r}
+probs <- predict(glm1, newdata=test, type="response")
+pred <- ifelse(probs>0.5, 1, 0)
+acc <- mean(pred==test$Survived_1_year)
+print(paste("accuracy = ", acc))
+table(pred, test$Survived_1_year)
+```
+
+#Confusion Matrix
+```{r}
+library(caret)
+confusionMatrix(as.factor(pred), reference=test$Survived_1_year)
+```
+
+#ROC
+```{r}
+library(ROCR)
+p <- predict(glm1, newdata=test, type="response")
+pr <- prediction(p, test$Survived_1_year)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+#Bayes
+```{r}
+p1 <- predict(nb1, newdata=test, type="class")
+table(p1, test$Survived_1_year)
+mean(p1==test$Survived_1_year)
+
+```
+
+### Strength and Weaknesses
+Both Logistical and Bayes have strength and weaknesses. When it comes to data size Bayes tends to work better with short data and Logistical with larger sets of data. However, both do end up converging when the training data heads to infinity. Bayes also runs quickly and works good with high dimensions because it assumes it's independent. The independence can also be double edge sword and affect performance because of it. Another done side is that it guesses on data in the testing set that wasn't seen in the training set. Logistical is computationally inexpensive and binary classification is handled pretty well if they are linearly separable. It also nicely outputs probability. The down side it can under fit because of complex non linear boundaries. 
+
+### Metrics
+One metric is accuracy which tells you how accurate the model correctly predicted. Then there is sensitivity that measures true positive rate and specificity that measures the true negative rate. This shows us how many were misclassified from the classes and it is drawn as a matrix. Then you have Kappa that tries to adjust the accuracy by accounting for the possibility of a correct prediction by chance alone and it's easily calculated. It's the measure of how two qualitative predictors may agree with each other, but that draw back is there is no universal agreement on the interpretation of it. Then there is ROC which is a visualization of the how the machine learning algorithm performed. It helps you see the relationship between true positive and false positive. AUC is the area under that curve. This tells you how well the model was able to distinguish the classes and it gives you a metric between 0 and 1 to evaluate the model. 
