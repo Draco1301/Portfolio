@@ -15,3 +15,6 @@ I implemented the [linear regression](https://github.com/Draco1301/Sample_Portfo
 
 ## Searching for Similarity: Regression
 I created multiple different regression models that can be viewed [here](https://github.com/Draco1301/Sample_Portfolio/blob/main/SFSRegression.pdf)
+
+## Python ML with sklearn
+In this assignment I created multiple machine learning models in python and can be viewed [here](https://github.com/Draco1301/Sample_Portfolio/blob/main/ML%20with%20sklearn.ipynb%20-%20Colaboratory.pdf)
